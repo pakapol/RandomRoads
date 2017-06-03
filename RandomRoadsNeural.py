@@ -49,7 +49,7 @@ class RandomRoadsEnvironment(object):
     # Random Road x, Road y
     self.road_x = x = np.random.randint(12,config.board_size-5 - 12) #6-53
     self.road_y = y = np.random.randint(12,config.board_size-5 - 12) #6-53
-    self.road_ref = np.array([x+1,y+1]).astype(int)
+
     # Initialize positions and velocities
     self.xstate = np.array([[1, y+1],
                            [x+1, 1],
@@ -61,7 +61,7 @@ class RandomRoadsEnvironment(object):
     # Prepare action to dv mapping
     self.get_dv = np.array([[1.,0.], [0.,1.],[-1.,0.],[0.,-1],[0.,0.]])
 
-    # For rendering purpose, initialize time-constant components of the pixels
+    # Initialize time-constant components of the pixels
     self.board = np.zeros((config.board_size,config.board_size,4))
     self.board[x:x+6, :] = 1.
     self.board[:, y:y+6] = 1.
@@ -69,22 +69,27 @@ class RandomRoadsEnvironment(object):
     self.board[x:x+6, 0:6, target_assignee[1]] = 0.75
     self.board[config.board_size-6:config.board_size, y:y+6, target_assignee[2]] = 0.75
     self.board[x:x+6, config.board_size-6:config.board_size, target_assignee[3]] = 0.75
+    
+    # Initialize the four-frame observation
+    self.image_observation = np.tile(np.expand_dims(self._current_frame(),3), (1,1,1,4))
 
     # Initialize all agents to not done
     self.isdone = np.array([False]*4)
-
-    return self.get_state()
-
-  def get_state(self):
-    return np.concatenate([self.xstate - self.road_ref, self.vstate,
-                           self.target_pos - self.road_ref], axis=1)
-   
+    return self.image_observation
 
   def _is_off_road(self):
     x, y = self.xstate.T
     return np.logical_and(np.logical_or(x <= self.road_x, self.road_x + 2 <= x),
                           np.logical_or(y <= self.road_y, self.road_y + 2 <= y))
 
+  def _update_frame(self, new_frame):
+    """
+      Update image observation
+        Eliminate first frame, and concatenate with new frame
+        Return nothing
+    """
+    self.image_observation = np.concatenate([np.expand_dims(new_frame, 3), self.image_observation[:,:,:,:3]], axis=3)
+    
   def _current_frame(self):
     """
       Return a 64 x 64 x 4 frame, each with with following values
@@ -152,10 +157,11 @@ class RandomRoadsEnvironment(object):
         self.isdone[i] = True
     
     self.xstate, self.vstate = new_x, new_v
-    return self.get_state(), rewards, self.isdone
+    self._update_frame(self._current_frame())
+    return self.image_observation, rewards, self.isdone
     
   def display(self, i):
-    plt.imshow(self._current_frame()[:,:,i].T, cmap="gray")
+    plt.imshow(self.image_observation[:,:,i,0], cmap="gray")
     plt.show()
 
   def seed(self, seed=None):
@@ -167,6 +173,8 @@ class RandomRoadsEnvironment(object):
 if __name__ == '__main__':
   env = RandomRoadsEnvironment()
   while 1:
-    print(env.step([0,0,0,0]))
-    print(env.step([1,1,1,1]))
+    env.step([0,0,0,0])
+    print(env.vstate)
+    env.step([1,1,1,1])
     env.display(0)
+    print(env.vstate)
