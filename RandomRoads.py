@@ -134,7 +134,6 @@ class RandomRoadsEnvironment(object):
         if collide(self.xstate[i], new_x[i], self.xstate[j], new_x[j]):
           collision[i] = True
           collision[j] = True
-          print(self.xstate[i], new_x[i], self.xstate[j], new_x[j])
  
     for i in range(4):
       if collision[i] and not self.isdone[i]:
